@@ -1,0 +1,141 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  username      String    @unique
+  password      String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  subscriptionTier String @default("FREE") // FREE, PREMIUM, ENTERPRISE
+  credits          Int    @default(10)
+  minutesUsed      Int    @default(0)
+
+  voiceModels   VoiceModel[]
+  audioProjects AudioProject[]
+  stories       Story[]
+  accounts      Account[]
+}
+
+// NextAuth Models
+model Account {
+  id                String @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  user              User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+// Voice Model
+model VoiceModel {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  externalId  String? // ID from Resemble.ai or ElevenLabs
+  provider    String // "RESEMBLEAI", "ELEVENLABS", etc.
+  status      String   @default("PROCESSING") // PROCESSING, READY, FAILED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  audioProjects AudioProject[]
+  voiceSamples  VoiceSample[]
+}
+
+// Voice Sample (recordings uploaded by user)
+model VoiceSample {
+  id            String   @id @default(cuid())
+  name          String
+  fileUrl       String
+  duration      Float // in seconds
+  transcription String?  @db.Text
+  createdAt     DateTime @default(now())
+  isGenerated   Boolean  @default(false) // Flag to distinguish between uploaded samples and generated ones
+
+  voiceModelId String
+  voiceModel   VoiceModel @relation(fields: [voiceModelId], references: [id], onDelete: Cascade)
+}
+
+// Audio Project
+model AudioProject {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  duration    Float? // in seconds
+  status      String   @default("DRAFT") // DRAFT, PROCESSING, COMPLETED
+  exportUrl   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  voiceModelId String?
+  voiceModel   VoiceModel? @relation(fields: [voiceModelId], references: [id])
+
+  storyId String?
+  story   Story?  @relation(fields: [storyId], references: [id])
+
+  audioClips AudioClip[]
+}
+
+// Audio Clip within a project
+model AudioClip {
+  id          String  @id @default(cuid())
+  name        String
+  type        String // VOICE, MUSIC, SOUND_EFFECT
+  fileUrl     String
+  startTime   Float // in seconds
+  duration    Float // in seconds
+  volume      Float   @default(1.0)
+  pitch       Float?
+  speed       Float?  @default(1.0)
+  emotionTone String? // HAPPY, SAD, NEUTRAL, etc.
+
+  text String? @db.Text // For voice clips, the text used to generate
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projectId String
+  project   AudioProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+// Generated Story
+model Story {
+  id        String   @id @default(cuid())
+  title     String
+  content   String   @db.Text
+  prompt    String   @db.Text
+  genre     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  audioProjects AudioProject[]
+}

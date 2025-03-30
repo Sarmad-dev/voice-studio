@@ -1,36 +1,90 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Voice Studio - AI Voice Cloning & Audio Editing Platform
+
+Voice Studio is a comprehensive platform for AI voice cloning, text-to-speech generation, story creation, and audio editing - all in one place.
+
+## Features
+
+- **Voice Cloning**: Record or upload voice samples (5-10 minutes) and train custom AI voice models.
+- **Text-to-Speech**: Generate speech in your custom voice with adjustable pitch, speed, and emotional tone.
+- **Story Generation**: Create AI-generated stories based on prompts and convert them to audio.
+- **Audio Editing**: Add background music, sound effects, trim, split, and merge audio clips.
+- **Project Management**: Save, organize, and export projects in various formats.
+- **Subscription Tiers**: Free tier with limited minutes, premium tier with unlimited usage.
+
+## Tech Stack
+
+- **Frontend**: Next.js, React, TypeScript, Tailwind CSS, Shadcn UI
+- **State Management**: Zustand
+- **Audio Processing**: Wavesurfer.js, Howler.js, Web Audio API
+- **Database**: PostgreSQL with Prisma ORM
+- **Authentication**: NextAuth.js
+- **File Storage**: AWS S3
+- **Voice APIs**: ElevenLabs / Resemble.ai
+- **AI Text Generation**: OpenAI
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- Node.js 18+ and npm
+- PostgreSQL database
+- AWS S3 bucket (for file storage)
+- API keys for voice services (ElevenLabs/Resemble.ai)
+- OpenAI API key
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Installation
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Clone the repository
+   ```
+   git clone https://github.com/yourusername/voice-studio.git
+   cd voice-studio
+   ```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+2. Install dependencies
+   ```
+   npm install
+   ```
 
-## Learn More
+3. Set up environment variables
+   Create a `.env` file in the root directory with:
+   ```
+   # Database
+   DATABASE_URL="postgresql://username:password@localhost:5432/voice_studio"
 
-To learn more about Next.js, take a look at the following resources:
+   # NextAuth
+   NEXTAUTH_URL="http://localhost:3000"
+   NEXTAUTH_SECRET="your-secret-key"
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+   # AWS S3
+   AWS_ACCESS_KEY_ID="your-access-key"
+   AWS_SECRET_ACCESS_KEY="your-secret-access-key"
+   AWS_REGION="us-east-1"
+   AWS_S3_BUCKET="voice-studio-uploads"
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+   # OpenAI
+   OPENAI_API_KEY="your-openai-api-key"
 
-## Deploy on Vercel
+   # Voice APIs
+   ELEVENLABS_API_KEY="your-elevenlabs-api-key"
+   RESEMBLE_API_KEY="your-resemble-api-key"
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+4. Initialize the database
+   ```
+   npx prisma db push
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+5. Run the development server
+   ```
+   npm run dev
+   ```
+
+6. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+## Deployment
+
+This application can be deployed on Vercel or any other Next.js-compatible hosting platform.
+
+## License
+
+[MIT](LICENSE)
