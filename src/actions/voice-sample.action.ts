@@ -3,21 +3,12 @@
 import { protectedAction } from "./../lib/server/trpc";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { v4 as uuidv4 } from "uuid";
 import { User } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 import * as ElevenLabs from "@/lib/elevenlabs";
-
-// Configure S3 client
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION || "us-east-1",
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
-  },
-});
+import { s3Client as s3, extractS3KeyFromUrl, generateSignedUrl } from "@/lib/s3-client";
 
 // Function to get the current user from the database using context or email
 async function getCurrentDbUser(ctx: any): Promise<User> {
@@ -106,7 +97,7 @@ export const uploadAudioToS3 = protectedAction
         ContentType: contentType,
       });
 
-      await s3Client.send(command);
+      await s3.send(command);
       console.log(`Successfully uploaded file to S3`);
       
       // Create the voice sample record in the database
@@ -250,7 +241,7 @@ export const cloneVoiceWithElevenlabs = protectedAction
           ContentType: 'audio/mpeg',
         });
 
-        await s3Client.send(command);
+        await s3.send(command);
         
         // Create a record for the generated test sample
         const region = process.env.AWS_REGION || "us-east-1";
@@ -397,7 +388,7 @@ export const generateTestAudio = protectedAction
           ContentType: 'audio/mpeg',
         });
 
-        await s3Client.send(command);
+        await s3.send(command);
         
         // Create the S3 URL for the uploaded file
         const region = process.env.AWS_REGION || "us-east-1";
@@ -485,47 +476,29 @@ export const getAudioFileUrl = protectedAction
         };
       }
       
-      // Extract the key from the fileUrl
-      const fileUrl = new URL(voiceSample.fileUrl);
-      
-      // Extract the bucket name and key 
-      const bucketName = process.env.AWS_S3_BUCKET || "voice-studio-uploads";
-      let key;
-      
-      if (fileUrl.hostname.includes(bucketName)) {
-        // The URL is in format https://bucket-name.s3.region.amazonaws.com/key
-        key = fileUrl.pathname.substring(1); // Remove leading '/'
-      } else {
-        // Try to extract the key from the path, assuming the pattern includes the bucket name
-        const pathParts = fileUrl.pathname.split('/');
-        // Remove empty parts and find the index after the bucket name
-        const filteredParts = pathParts.filter(part => part.length > 0);
-        const bucketIndex = filteredParts.findIndex(part => part === bucketName);
-        
-        if (bucketIndex >= 0 && bucketIndex < filteredParts.length - 1) {
-          // The key is everything after the bucket name
-          key = filteredParts.slice(bucketIndex + 1).join('/');
-        } else {
-          // Fallback: just use the full path without the leading slash
-          key = fileUrl.pathname.substring(1);
-        }
+      if (!voiceSample.fileUrl) {
+        return {
+          success: false,
+          error: {
+            message: "Sample has no associated file",
+          },
+        };
       }
       
-      console.log(`Generating pre-signed URL for key: ${key} in bucket: ${bucketName}`);
+      // Extract the key using our utility function
+      const key = extractS3KeyFromUrl(voiceSample.fileUrl);
       
-      // Generate a pre-signed URL for the S3 object
-      const command = new GetObjectCommand({
-        Bucket: process.env.AWS_S3_BUCKET || "voice-studio-uploads",
-        Key: key,
-      });
+      console.log(`Generating pre-signed URL for key: ${key}`);
       
-      // Set expiration to 1 hour
-      const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+      // Generate a pre-signed URL using our utility
+      const signedUrl = await generateSignedUrl(key);
       
       return {
         success: true,
         data: {
           signedUrl,
+          sampleId: voiceSample.id,
+          name: voiceSample.name,
         },
       };
     } catch (error: any) {

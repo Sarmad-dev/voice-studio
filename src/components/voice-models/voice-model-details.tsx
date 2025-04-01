@@ -305,6 +305,7 @@ export default function VoiceModelDetails({ modelId }: VoiceModelDetailsProps) {
                     {originalSamples.map((sample) => (
                       <div key={sample.id} className="border rounded-lg p-4">
                         <AudioPlayer
+                          src={sample.fileUrl}
                           sampleId={sample.id}
                           label={`Sample: ${new Date(sample.createdAt).toLocaleString()}`}
                         />
@@ -369,7 +370,7 @@ export default function VoiceModelDetails({ modelId }: VoiceModelDetailsProps) {
                         {generatedSamples.map((sample) => (
                           <div key={sample.id} className="border rounded-lg p-4">
                             <AudioPlayer
-                              sampleId={sample.id}
+                              src={sample.fileUrl}
                               label={sample.transcription || "Generated sample"}
                             />
                           </div>

@@ -20,6 +20,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Wand2, AlertCircle, ScrollText, Sparkles } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2 } from "lucide-react";
+import { EnhancementTypeDialog } from "@/components/editor/enhancement-type-dialog";
+import { EnhancementType } from "@/actions/enhance-text.action";
 
 export default function EditorPage() {
   const searchParams = useSearchParams();
@@ -84,14 +86,14 @@ export default function EditorPage() {
   };
 
   // Handle enhance text with AI
-  const handleEnhanceText = async () => {
+  const handleEnhanceText = async (enhancementType: EnhancementType) => {
     if (!plainText) {
       toast.error("Please enter some text before enhancing");
       return;
     }
 
     try {
-      await enhanceText(plainText, "both");
+      await enhanceText(plainText, enhancementType);
     } catch (error) {
       console.error('Error enhancing text:', error);
     }
@@ -178,24 +180,11 @@ export default function EditorPage() {
             </div>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-              <Button 
-                onClick={handleEnhanceText}
-                disabled={isEnhancing || !plainText}
-                variant="outline"
-                className="w-full"
-              >
-                {isEnhancing ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Enhancing...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    Enhance with AI
-                  </>
-                )}
-              </Button>
+              <EnhancementTypeDialog 
+                onEnhance={handleEnhanceText}
+                isEnhancing={isEnhancing}
+                disabled={!plainText}
+              />
               
               <Button 
                 onClick={handleGenerateSpeech}
@@ -231,7 +220,7 @@ export default function EditorPage() {
               </TabsList>
               
               <TabsContent value="text" className="space-y-4 pt-2">
-                {enhancedContent?.enhanced && enhancedContent.enhanced.length > 0 ? (
+                {enhancedContent && (
                   <div className="space-y-4">
                     <div className="bg-muted/40 p-4 rounded-md border">
                       <RadioGroup 
@@ -265,21 +254,21 @@ export default function EditorPage() {
                       </CardContent>
                     </Card>
                   </div>
-                ) : (
-                  plainText && (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-lg font-medium">Text Preview</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <Textarea 
-                          readOnly
-                          value={plainText}
-                          className="min-h-32 resize-none"
-                        />
-                      </CardContent>
-                    </Card>
-                  )
+                )}
+                
+                {(!enhancedContent && plainText) && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg font-medium">Text Preview</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Textarea 
+                        readOnly
+                        value={plainText}
+                        className="min-h-32 resize-none"
+                      />
+                    </CardContent>
+                  </Card>
                 )}
               </TabsContent>
               
@@ -291,7 +280,7 @@ export default function EditorPage() {
                     </CardHeader>
                     <CardContent>
                       <AudioPlayer 
-                        src={generatedAudio.fileUrl} 
+                        src={generatedAudio.fileUrl}
                         label={generatedAudio.name} 
                       />
                     </CardContent>

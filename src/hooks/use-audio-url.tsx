@@ -32,6 +32,8 @@ export function useAudioUrl(sampleId: string) {
     toast.error(errorMessage);
     setError(errorMessage);
   }
+
+  console.log("Signed URL: ", query.data?.data?.signedUrl)
   
   return {
     signedUrl: query.data?.success ? query.data.data?.signedUrl : null,

@@ -2,18 +2,10 @@
 
 import { protectedAction } from "@/lib/server/trpc";
 import { z } from "zod";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { v4 as uuidv4 } from "uuid";
 import { prisma } from "@/lib/db";
-
-// Configure S3 client
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION || "us-east-1",
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
-  },
-});
+import { s3Client } from "@/lib/s3-client";
 
 /**
  * Generate text-to-speech audio using ElevenLabs API
