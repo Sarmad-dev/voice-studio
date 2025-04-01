@@ -8,19 +8,7 @@ import {
   generateVoiceSample,
   applyPrebuiltVoice
 } from "@/actions/prebuilt-voices.action";
-
-interface PrebuiltVoice {
-  id: string;
-  name: string;
-  description: string;
-  previewUrl: string;
-  category: string;
-  labels: Record<string, string>;
-  gender: string;
-  accent: string;
-  age: string;
-  useCase: string;
-}
+import { PrebuiltVoice } from "@/lib/elevenlabs";
 
 interface SampleResult {
   id: string;

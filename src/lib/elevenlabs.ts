@@ -13,11 +13,35 @@ if (!API_KEY) {
   );
 }
 
+// Define the Voice interface for ElevenLabs API
+interface Voice {
+  voice_id: string;
+  name: string;
+  description: string | null;
+  preview_url: string;
+  category: string;
+  labels: Record<string, string>;
+}
+
+// Define the PrebuiltVoice interface for our app
+export interface PrebuiltVoice {
+  id: string;
+  name: string;
+  description: string;
+  previewUrl: string;
+  category: string;
+  labels: Record<string, string>;
+  gender: string;
+  accent: string;
+  age: string;
+  useCase: string;
+}
+
 /**
  * Fetch all available prebuilt voices from ElevenLabs
  * @returns Array of available voices with their details
  */
-export async function getPrebuiltVoices() {
+export async function getPrebuiltVoices(): Promise<PrebuiltVoice[]> {
   try {
     if (!API_KEY) {
       throw new Error("ElevenLabs API key is not configured");
@@ -52,12 +76,11 @@ export async function getPrebuiltVoices() {
     }
     
     const result = await response.json();
-    const voices = result.voices as Voice[]
     
     // Filter for prebuilt voices and format the response
-    const prebuiltVoices = voices
-      .filter((voice: any) => voice.category === "premade")
-      .map((voice: any) => ({
+    const prebuiltVoices = (result.voices as Voice[])
+      .filter((voice) => voice.category === "premade")
+      .map((voice) => ({
         id: voice.voice_id,
         name: voice.name,
         description: voice.description || "",

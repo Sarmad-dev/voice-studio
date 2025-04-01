@@ -375,34 +375,62 @@ export const generateTestAudio = protectedAction
         };
       }
 
-      // Call Elevenlabs API to generate audio
-      // This is a placeholder - in real implementation you would use the SDK
-      // Mock the response for now
-      const mockGeneratedAudioUrl = 
-        `https://example.com/generated-audio-${uuidv4()}.mp3`;
+      // Call Elevenlabs API to generate audio using the actual API
+      try {
+        const elevenlabsVoiceId = voiceModel.externalId;
+        
+        // Generate the audio using ElevenLabs API
+        const audioBuffer = await ElevenLabs.generateTestAudio(
+          elevenlabsVoiceId, 
+          text
+        );
+        
+        // Create unique filename for the generated sample
+        const fileName = `${voiceModelId}/${uuidv4()}_generated.mp3`;
+        const bucketName = process.env.AWS_S3_BUCKET || "voice-studio-uploads";
+        
+        // Upload generated audio to S3
+        const command = new PutObjectCommand({
+          Bucket: bucketName,
+          Key: fileName,
+          Body: audioBuffer,
+          ContentType: 'audio/mpeg',
+        });
 
-      // In real implementation, you would:
-      // 1. Call Elevenlabs API with the voice ID and text
-      // 2. Get back audio data
-      // 3. Upload that to S3
-      // 4. Store reference in database
+        await s3Client.send(command);
+        
+        // Create the S3 URL for the uploaded file
+        const region = process.env.AWS_REGION || "us-east-1";
+        const fileUrl = `https://${bucketName}.s3.${region}.amazonaws.com/${fileName}`;
+        
+        // Calculate approximate duration (this is an estimate)
+        const approximateDuration = Math.floor(audioBuffer.length / 16000);
+        
+        // Create a sample record in the database
+        const generatedSample = await prisma.voiceSample.create({
+          data: {
+            name: "Generated Sample",
+            fileUrl: fileUrl,
+            duration: approximateDuration,
+            transcription: text, // Store the text used to generate
+            voiceModelId,
+            isGenerated: true, // Flag to identify generated samples
+          },
+        });
 
-      // Create a sample for the generated audio
-      const generatedSample = await prisma.voiceSample.create({
-        data: {
-          name: "Generated Sample",
-          fileUrl: mockGeneratedAudioUrl,
-          duration: 0, // This would be calculated from the response
-          transcription: text, // Store the text used to generate
-          voiceModelId,
-          isGenerated: true, // Flag to identify generated samples
-        },
-      });
-
-      return {
-        success: true,
-        data: generatedSample,
-      };
+        return {
+          success: true,
+          data: generatedSample,
+        };
+      } catch (elevenlabsError: any) {
+        console.error("Error generating audio with ElevenLabs:", elevenlabsError);
+        return {
+          success: false,
+          error: {
+            message: elevenlabsError.message || "Failed to generate audio with ElevenLabs",
+          },
+        };
+      }
     } catch (error: any) {
       console.error("Error generating test audio:", error);
       return {

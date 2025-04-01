@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { usePrebuiltVoices } from "@/hooks/use-prebuilt-voices";
 import {
   Card,
@@ -28,6 +28,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { AudioPlayer } from "@/components/audio-player";
 import { Icons } from "@/components/icons";
+import { PrebuiltVoice } from "@/lib/elevenlabs";
+import Link from "next/link";
 
 interface PrebuiltVoicesBrowserProps {
   voiceModelId?: string;
@@ -69,16 +71,17 @@ export function PrebuiltVoicesBrowser({
     searchQuery: searchQuery || undefined,
   });
 
-  // Get unique filter options
+  // Get unique filter options with proper typing
   const genderOptions = [
-    ...new Set(voices?.map((voice) => voice.gender)),
-  ].filter(Boolean);
+    ...new Set((voices as PrebuiltVoice[])?.map((voice) => voice.gender)),
+  ].filter(Boolean) as string[];
+
   const accentOptions = [
-    ...new Set(voices?.map((voice) => voice.accent)),
-  ].filter(Boolean);
+    ...new Set((voices as PrebuiltVoice[])?.map((voice) => voice.accent)),
+  ].filter(Boolean) as string[];
 
   // Handle voice selection
-  const handleSelectVoice = (voice: any) => {
+  const handleSelectVoice = (voice: PrebuiltVoice) => {
     setSelectedVoice(voice);
     setCurrentTab("preview");
   };
@@ -90,7 +93,7 @@ export function PrebuiltVoicesBrowser({
     generateSample({
       voiceId: selectedVoice.id,
       text: sampleText,
-      voiceModelId: voiceModelId, // Optional - only if we want to save it to a model
+      voiceModelId: voiceModelId,
     });
   };
 
@@ -190,7 +193,7 @@ export function PrebuiltVoicesBrowser({
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredVoices.map((voice) => (
+              {filteredVoices.map((voice: PrebuiltVoice) => (
                 <Card key={voice.id} className="overflow-hidden">
                   <CardHeader className="pb-2">
                     <div className="flex justify-between items-start">
@@ -227,13 +230,23 @@ export function PrebuiltVoicesBrowser({
                       {voice.previewUrl && (
                         <AudioPlayer src={voice.previewUrl} label="Preview" />
                       )}
-                      <Button
-                        variant="secondary"
-                        className="w-full"
-                        onClick={() => handleSelectVoice(voice)}
-                      >
-                        Select Voice
-                      </Button>
+                      <div className="flex gap-2 w-full">
+                        <Button
+                          variant="secondary"
+                          className="flex-1"
+                          onClick={() => handleSelectVoice(voice)}
+                        >
+                          Select Voice
+                        </Button>
+                        <Link
+                          href={`/editor?voiceId=${voice.id}`}
+                          className="flex-1"
+                        >
+                          <Button variant="default" className="w-full">
+                            Use This Voice
+                          </Button>
+                        </Link>
+                      </div>
                     </div>
                   </CardFooter>
                 </Card>
@@ -355,6 +368,21 @@ export function PrebuiltVoicesBrowser({
                       "Apply Voice to My Model"
                     )}
                   </Button>
+                </CardFooter>
+              )}
+              {selectedVoice && (
+                <CardFooter
+                  className={voiceModelId && showApplyButton ? "pt-0" : ""}
+                >
+                  <Link
+                    href={`/editor?voiceId=${selectedVoice.id}`}
+                    className="w-full"
+                  >
+                    <Button variant="outline" className="w-full">
+                      <Icons.edit className="mr-2 h-4 w-4" />
+                      Use This Voice For Writing
+                    </Button>
+                  </Link>
                 </CardFooter>
               )}
             </Card>
