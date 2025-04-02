@@ -1,102 +1,99 @@
-import { Button } from "@/components/ui/button";
-import { Icons } from "@/components/icons";
-import Link from "next/link";
+"use client";
 
-// Mock data for demonstration
-const mockVoiceModels = [
-  {
-    id: "1",
-    name: "My Voice",
-    description: "My personal voice clone",
-    status: "READY",
-    createdAt: "2023-03-20",
-    provider: "ELEVENLABS",
-  },
-  {
-    id: "2",
-    name: "Narrator",
-    description: "Professional narrator voice",
-    status: "READY",
-    createdAt: "2023-03-15",
-    provider: "ELEVENLABS",
-  },
-  {
-    id: "3",
-    name: "Character Voice",
-    description: "Sci-fi character voice for animations",
-    status: "PROCESSING",
-    createdAt: "2023-04-02",
-    provider: "RESEMBLEAI",
-  },
-];
+import { Suspense } from "react";
+import { Icons } from "@/components/icons";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import VoiceModelCard from "@/components/voice-models/voice-model-card";
+import CreateVoiceModelDialog from "@/components/voice-models/create-voice-model-dialog";
+import { useVoiceModels } from "@/hooks/use-voice-models";
 
 export default function VoiceModelsPage() {
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Voice Models</h1>
-        <Button>
-          <Icons.plus className="mr-2 h-4 w-4" />
-          New Voice Model
+        <CreateVoiceModelDialog />
+      </div>
+
+      <Suspense fallback={<VoiceModelsGridSkeleton />}>
+        <VoiceModelsGrid />
+      </Suspense>
+    </div>
+  );
+}
+
+function VoiceModelsGrid() {
+  const { voiceModels = [], isLoading, error } = useVoiceModels();
+
+  if (isLoading) {
+    return <VoiceModelsGridSkeleton />;
+  }
+
+  if (error) {
+    return (
+      <div className="p-8 text-center rounded-lg border bg-card">
+        <Icons.alertCircle className="mx-auto h-10 w-10 text-destructive mb-4" />
+        <h3 className="text-lg font-medium mb-2">Error loading voice models</h3>
+        <p className="text-sm text-muted-foreground mb-4">{error}</p>
+        <Button onClick={() => window.location.reload()}>
+          <Icons.refresh className="mr-2 h-4 w-4" />
+          Retry
         </Button>
       </div>
+    );
+  }
 
-      {/* Voice Models Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {mockVoiceModels.map((model) => (
-          <div
-            key={model.id}
-            className="flex flex-col justify-between rounded-lg border bg-card transition-colors hover:bg-accent/10"
-          >
-            <div className="p-6">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold">{model.name}</h3>
-                <div
-                  className={`rounded-full px-2 py-1 text-xs ${
-                    model.status === "READY"
-                      ? "bg-green-100 text-green-700"
-                      : "bg-yellow-100 text-yellow-700"
-                  }`}
-                >
-                  {model.status}
-                </div>
-              </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {model.description}
-              </p>
-              <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
-                <Icons.mic className="h-3 w-3" />
-                <span>{model.provider}</span>
-                <span>•</span>
-                <span>Created {model.createdAt}</span>
-              </div>
-            </div>
-            <div className="flex items-center justify-between border-t p-4">
-              <Button variant="ghost" size="sm">
-                <Icons.play className="mr-2 h-4 w-4" />
-                Test
-              </Button>
-              <Link href={`/voice-models/${model.id}`}>
-                <Button variant="outline" size="sm">
-                  Manage
-                </Button>
-              </Link>
-            </div>
-          </div>
-        ))}
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {/* User's Voice Models */}
+      {voiceModels.map((model) => (
+        <VoiceModelCard key={model.id} model={model} />
+      ))}
 
-        {/* Add New Voice Model Card */}
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed bg-card p-6 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-            <Icons.plus className="h-6 w-6 text-primary" />
-          </div>
-          <h3 className="mt-4 font-medium">Create New Voice Model</h3>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Upload voice samples to train a new custom voice model
-          </p>
-          <Button className="mt-6">Get Started</Button>
+      {/* Add New Voice Model Card */}
+      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed bg-card p-6 text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+          <Icons.plus className="h-6 w-6 text-primary" />
         </div>
+        <h3 className="mt-4 font-medium">Create New Voice Model</h3>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Upload voice samples to train a new custom voice model
+        </p>
+        <CreateVoiceModelDialog 
+          trigger={
+            <Button className="mt-6">Get Started</Button>
+          }
+        />
       </div>
+    </div>
+  );
+}
+
+function VoiceModelsGridSkeleton() {
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="rounded-lg border bg-card p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="h-6 w-20 rounded-full" />
+          </div>
+          <Skeleton className="h-16 w-full" />
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-4 w-4 rounded-full" />
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-4 w-4 rounded-full" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+          <div className="flex border-t pt-4 items-center justify-between">
+            <Skeleton className="h-8 w-16" />
+            <Skeleton className="h-8 w-16" />
+          </div>
+        </div>
+      ))}
+      {/* Skeleton for the "Create New" card */}
+      <Skeleton className="h-[250px] rounded-lg" />
     </div>
   );
 } 

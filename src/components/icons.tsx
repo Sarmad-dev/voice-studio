@@ -1,4 +1,5 @@
 import {
+  AlertCircle,
   AlertTriangle,
   ArrowLeft,
   AudioWaveform,
@@ -106,4 +107,6 @@ export const Icons = {
   search: Search,
   audioWaveform: AudioWaveform,
   alertTriangle: AlertTriangle,
+  refresh: RotateCw,
+  alertCircle: AlertCircle
 }; 

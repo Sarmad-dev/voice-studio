@@ -58,7 +58,7 @@ const CreateVoiceModelForm = (props: Props) => {
             <FormItem>
               <FormLabel>Name of Voice Model</FormLabel>
               <FormControl>
-                <Input {...field} placeholder="Voice Model Name" type="text" />
+                <Input {...field} placeholder="Voice Model Name" type="text" autoFocus={false} />
               </FormControl>
               <FormMessage />
             </FormItem>
