@@ -56,6 +56,19 @@ export function AudioPlayer({ src, sampleId, label, onEnded }: AudioPlayerProps)
               url: optimizedUrl,
               optimized: true
             });
+            
+            // Try to get the duration specifically for S3 URLs
+            if (initialAudioSrc.includes('s3.amazonaws.com') || initialAudioSrc.includes('voice-studio-uploads')) {
+              try {
+                const duration = await getDurationFromAudio(optimizedUrl);
+                if (isFinite(duration) && duration > 0) {
+                  setDuration(duration);
+                  console.log("Pre-loaded duration:", duration);
+                }
+              } catch (durationError) {
+                console.warn("Could not pre-load duration:", durationError);
+              }
+            }
           }
         } catch (error) {
           console.error("Error optimizing URL:", error);
@@ -81,12 +94,39 @@ export function AudioPlayer({ src, sampleId, label, onEnded }: AudioPlayerProps)
     setAudioError(null);
     
     const setAudioData = () => {
-      setDuration(audioElement.duration);
-      console.log("Audio loaded successfully:", audioSrc);
+      if (isFinite(audioElement.duration)) {
+        setDuration(audioElement.duration);
+        console.log("Audio loaded successfully with duration:", audioElement.duration);
+      }
+    };
+    
+    const handleMetadataLoaded = () => {
+      if (isFinite(audioElement.duration)) {
+        setDuration(audioElement.duration);
+        console.log("Metadata loaded with duration:", audioElement.duration);
+      } else {
+        console.warn("Metadata loaded but duration is not valid:", audioElement.duration);
+        // For S3 signed URLs, sometimes we need to manually calculate duration
+        // Schedule a check after playback starts
+        setTimeout(() => {
+          if (audioElement && isFinite(audioElement.duration)) {
+            setDuration(audioElement.duration);
+            console.log("Updated duration after delay:", audioElement.duration);
+          }
+        }, 1000);
+      }
     };
     
     const setAudioTime = () => {
       setCurrentTime(audioElement.currentTime);
+      
+      // If duration wasn't set correctly initially, try again during playback
+      if (duration === 0 || !isFinite(duration)) {
+        if (isFinite(audioElement.duration)) {
+          setDuration(audioElement.duration);
+          console.log("Updated duration during playback:", audioElement.duration);
+        }
+      }
     };
     
     const handleEnded = () => {
@@ -148,6 +188,7 @@ export function AudioPlayer({ src, sampleId, label, onEnded }: AudioPlayerProps)
     };
     
     audioElement.addEventListener("loadeddata", setAudioData);
+    audioElement.addEventListener("loadedmetadata", handleMetadataLoaded);
     audioElement.addEventListener("timeupdate", setAudioTime);
     audioElement.addEventListener("ended", handleEnded);
     audioElement.addEventListener("error", handleError as EventListener);
@@ -159,11 +200,12 @@ export function AudioPlayer({ src, sampleId, label, onEnded }: AudioPlayerProps)
     
     return () => {
       audioElement.removeEventListener("loadeddata", setAudioData);
+      audioElement.removeEventListener("loadedmetadata", handleMetadataLoaded);
       audioElement.removeEventListener("timeupdate", setAudioTime);
       audioElement.removeEventListener("ended", handleEnded);
       audioElement.removeEventListener("error", handleError as EventListener);
     };
-  }, [audioSrc, onEnded]);
+  }, [audioSrc, onEnded, duration]);
   
   // Add a blob fallback method
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
@@ -230,6 +272,60 @@ export function AudioPlayer({ src, sampleId, label, onEnded }: AudioPlayerProps)
     }
   };
 
+  // Add this new function after fetchAudioAsBlob
+  const getDurationFromAudio = (url: string): Promise<number> => {
+    return new Promise((resolve, reject) => {
+      // Create a temporary audio element
+      const tempAudio = new Audio();
+      let timeoutId: NodeJS.Timeout;
+      
+      // Set up event listeners
+      const onLoadedMetadata = () => {
+        if (isFinite(tempAudio.duration)) {
+          console.log("Got duration from temp audio:", tempAudio.duration);
+          clearTimeout(timeoutId);
+          resolve(tempAudio.duration);
+        } else {
+          clearTimeout(timeoutId);
+          reject(new Error("Duration is not a finite number"));
+        }
+        
+        // Clean up
+        tempAudio.removeEventListener('loadedmetadata', onLoadedMetadata);
+        tempAudio.removeEventListener('error', onError);
+      };
+      
+      const onError = (e: ErrorEvent) => {
+        clearTimeout(timeoutId);
+        reject(new Error(`Failed to load audio: ${e.message}`));
+        
+        // Clean up
+        tempAudio.removeEventListener('loadedmetadata', onLoadedMetadata);
+        tempAudio.removeEventListener('error', onError);
+      };
+      
+      // Add event listeners
+      tempAudio.addEventListener('loadedmetadata', onLoadedMetadata);
+      tempAudio.addEventListener('error', onError as any);
+      
+      // Handle cross-origin for proxy URLs
+      if (url.includes('/api/audio-proxy')) {
+        tempAudio.crossOrigin = "anonymous";
+      }
+      
+      // Set the source and start loading
+      tempAudio.src = url;
+      tempAudio.preload = "metadata";
+      
+      // Set a timeout in case metadata never loads
+      timeoutId = setTimeout(() => {
+        tempAudio.removeEventListener('loadedmetadata', onLoadedMetadata);
+        tempAudio.removeEventListener('error', onError);
+        reject(new Error("Timeout getting duration"));
+      }, 5000);
+    });
+  };
+
   // Modify the attemptDirectPlay function to try the blob approach if other methods fail
   const attemptDirectPlay = async () => {
     if (!audioSrc || !audioRef.current) return;
@@ -243,6 +339,13 @@ export function AudioPlayer({ src, sampleId, label, onEnded }: AudioPlayerProps)
         audioRef.current.load();
         await audioRef.current.play();
         setIsPlaying(true);
+        
+        // Check duration again after playing starts
+        setTimeout(() => {
+          if (audioRef.current && isFinite(audioRef.current.duration)) {
+            setDuration(audioRef.current.duration);
+          }
+        }, 500);
         return;
       }
       
@@ -395,14 +498,21 @@ export function AudioPlayer({ src, sampleId, label, onEnded }: AudioPlayerProps)
           className="flex-1"
         />
         <div className="min-w-16 text-xs text-right">
-          {formatTime(currentTime)} / {formatTime(duration)}
+          {formatTime(currentTime)} / {isFinite(duration) ? formatTime(duration) : "--:--"}
         </div>
       </div>
       <audio 
         ref={audioRef} 
-        preload="auto"
+        preload="metadata"
         crossOrigin="anonymous"
         className="hidden"
+        onDurationChange={(e) => {
+          const audioDuration = e.currentTarget.duration;
+          if (isFinite(audioDuration) && audioDuration > 0) {
+            console.log("Duration changed:", audioDuration);
+            setDuration(audioDuration);
+          }
+        }}
       >
         {/* For WAV files */}
         {audioSrc && audioSrc.includes('.wav') && (

@@ -14,7 +14,7 @@ export default async function DashboardLayout({
     <div className="flex min-h-screen flex-col">
       <div className="flex flex-1">
         {/* Desktop sidebar - hidden on mobile */}
-        <aside className="hidden border-r bg-muted/40 md:block md:w-64 sticky left-0 top-0">
+        <aside className="hidden border-r bg-muted/40 md:block md:w-64 sticky left-0 top-0 max-h-screen">
           <MainNav />
         </aside>
 
