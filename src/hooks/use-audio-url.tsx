@@ -10,16 +10,16 @@ import { getAudioFileUrl } from "@/actions/voice-sample.action";
  * @param sampleId The ID of the voice sample
  * @returns The pre-signed URL and loading/error states
  */
-export function useAudioUrl(sampleId: string) {
+export function useAudioUrl(sampleId: string, audioId: string) {
   const [error, setError] = useState<string | null>(null);
   
   const query = useQuery({
     queryKey: ["audio-url", sampleId],
     queryFn: async () => {
       if (!sampleId) return null;
-      return getAudioFileUrl({ sampleId });
+      return getAudioFileUrl({ sampleId, audioId  });
     },
-    enabled: !!sampleId,
+    enabled: !!sampleId || !!audioId,
     staleTime: 45 * 60 * 1000, // 45 minutes (URLs expire after 1 hour)
   });
   

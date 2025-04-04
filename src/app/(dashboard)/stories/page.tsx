@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Icons } from "@/components/icons";
 import Link from "next/link";
 import { FileText } from "lucide-react";
+import CreateProjectFromStory from "@/components/stories/create-project-from-story";
 
 // Mock data for demonstration
 const mockStories = [
@@ -80,12 +81,16 @@ export default function StoriesPage() {
                   Edit
                 </Button>
               </Link>
-              <Link href={`/projects/new?storyId=${story.id}`} className="w-full">
-                <Button size="sm" className="w-full">
-                  <Icons.music className="mr-2 h-4 w-4" />
-                  Create Audio
-                </Button>
-              </Link>
+              <div className="w-full">
+                <CreateProjectFromStory 
+                  storyId={story.id} 
+                  storyTitle={story.title}
+                  buttonProps={{
+                    buttonSize: "sm",
+                    fullWidth: true
+                  }}
+                />
+              </div>
             </div>
           </div>
         ))}

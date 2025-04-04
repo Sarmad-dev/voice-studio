@@ -19,20 +19,27 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Wand2, AlertCircle, ScrollText, Sparkles } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
 import { EnhancementTypeDialog } from "@/components/editor/enhancement-type-dialog";
 import { EnhancementType } from "@/actions/enhance-text.action";
+import { createAudioClip } from "@/actions/project.action";
+import Link from "next/link";
+import { AudioClip } from "@prisma/client";
 
 export default function EditorPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const initialVoiceId = searchParams.get("voiceId");
+  const projectId = searchParams.get("projectId");
+  const voiceModelId = searchParams.get("voiceModelId");
   
   const [editorContent, setEditorContent] = useState<string>("<p>Start typing your content here...</p>");
   const [plainText, setPlainText] = useState<string>("");
   const [title, setTitle] = useState<string>("");
   const [selectedContent, setSelectedContent] = useState<"original" | "enhanced">("original");
   const [activeSpeechTab, setActiveSpeechTab] = useState<"text" | "audio">("text");
+  const [isAddingToProject, setIsAddingToProject] = useState<boolean>(false);
+  const [generatedSpeech, setGeneratedSpeech] = useState<AudioClip | null>(null)
   
   const [selectedVoice, setSelectedVoice] = useState<{
     id: string;
@@ -43,6 +50,17 @@ export default function EditorPage() {
   const { enhanceText, enhancedContent, isEnhancing, clearEnhancedContent } = useTextEnhancement();
   const { generateAudio, generatedAudio, isGenerating, clearGeneratedAudio } = useTextToSpeech();
   const [isApiKeyConfigured, setIsApiKeyConfigured] = useState<boolean>(true);
+
+  // Set initial voice from voiceModelId if provided
+  useEffect(() => {
+    if (voiceModelId && !initialVoiceId) {
+      setSelectedVoice({
+        id: voiceModelId,
+        name: "", // This will be populated when voice data is fetched
+        type: "custom"
+      });
+    }
+  }, [voiceModelId, initialVoiceId]);
 
   // Extract plain text from HTML content
   useEffect(() => {
@@ -82,6 +100,12 @@ export default function EditorPage() {
     // Update URL query params to reflect selected voice
     const params = new URLSearchParams(searchParams.toString());
     params.set("voiceId", voice.id);
+    
+    // Preserve projectId in URL if it exists
+    if (projectId) {
+      params.set("projectId", projectId);
+    }
+    
     router.push(`/editor?${params.toString()}`);
   };
 
@@ -114,14 +138,51 @@ export default function EditorPage() {
     }
 
     try {
-      await generateAudio({
+      const audioClip = await generateAudio({
         text: textToUse,
         title: title || "Untitled",
         voiceId: selectedVoice.id,
       });
+
+      setGeneratedSpeech(audioClip?.data as AudioClip)
       setActiveSpeechTab("audio");
     } catch (error) {
       console.error('Error generating speech:', error);
+    }
+  };
+
+  // Add the audio to project
+  const addToProject = async () => {
+    if (!projectId || !generatedAudio) {
+      toast.error("Project ID or generated audio not available");
+      return;
+    }
+
+    setIsAddingToProject(true);
+    try {
+      // Create audio clip in the project
+      await createAudioClip({
+        speechId: generatedSpeech?.id as string,
+        projectId,
+        name: title || "Generated Audio",
+        text: selectedContent === "original" ? plainText : enhancedContent?.enhanced || plainText,
+        type: "tts",
+        fileUrl: generatedAudio.fileUrl,
+        startTime: 0,
+        duration: generatedAudio.duration || 0,
+        volume: 1,
+        modelId: selectedVoice?.id || "default",
+      });
+      
+      toast.success("Audio added to project successfully");
+      
+      // Navigate back to the project
+      router.push(`/projects/${projectId}`);
+    } catch (error) {
+      console.error('Error adding audio to project:', error);
+      toast.error("Failed to add audio to project");
+    } finally {
+      setIsAddingToProject(false);
     }
   };
 
@@ -137,6 +198,16 @@ export default function EditorPage() {
 
   return (
     <div className="container py-8 max-w-7xl mx-auto">
+      {projectId && (
+        <div className="mb-4 flex items-center">
+          <Link href={`/projects/${projectId}`} className="flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Project
+          </Link>
+          {projectId && <div className="ml-4 text-sm bg-muted px-2 py-1 rounded-md">Adding audio to project</div>}
+        </div>
+      )}
+      
       {isApiKeyConfigured === false && (
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
@@ -284,10 +355,30 @@ export default function EditorPage() {
                         label={generatedAudio.name} 
                       />
                     </CardContent>
-                    <CardFooter>
+                    <CardFooter className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                       <div className="text-xs text-muted-foreground">
                         Duration: {Math.round(generatedAudio.duration)}s | Created: {new Date(generatedAudio.createdAt).toLocaleString()}
                       </div>
+                      
+                      {projectId && (
+                        <Button 
+                          onClick={addToProject}
+                          disabled={isAddingToProject}
+                          variant="default"
+                        >
+                          {isAddingToProject ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Adding...
+                            </>
+                          ) : (
+                            <>
+                              <Icons.plus className="mr-2 h-4 w-4" />
+                              Add to Project
+                            </>
+                          )}
+                        </Button>
+                      )}
                     </CardFooter>
                   </Card>
                 )}

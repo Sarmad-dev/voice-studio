@@ -17,21 +17,22 @@ export const generateSpeech = protectedAction
       text: z.string().min(1).max(5000),
       modelId: z.string().optional(),
       title: z.string().optional(),
+      userId: z.string()
     })
   )
   .mutation(async ({ ctx, input }) => {
     try {
-      const { voiceId, text, modelId, title } = input;
-      
+      const { voiceId, text, modelId, title, userId } = input;
+
       // Call ElevenLabs API to generate speech
       const apiKey = process.env.ELEVENLABS_API_KEY;
       if (!apiKey) {
         throw new Error("ElevenLabs API key is not configured");
       }
-      
+
       // API URL
       const apiUrl = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
-      
+
       // Call the ElevenLabs API
       const response = await fetch(apiUrl, {
         method: "POST",
@@ -48,19 +49,21 @@ export const generateSpeech = protectedAction
           },
         }),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(`ElevenLabs API error: ${errorData.detail || response.statusText}`);
+        throw new Error(
+          `ElevenLabs API error: ${errorData.detail || response.statusText}`
+        );
       }
-      
+
       // Get the audio data
       const audioBuffer = Buffer.from(await response.arrayBuffer());
-      
+
       // Create a unique filename for the audio file
       const filename = `tts-${uuidv4()}.mp3`;
       const s3Key = `text-to-speech/${ctx.user.id}/${filename}`;
-      
+
       // Upload audio to S3
       await s3Client.send(
         new PutObjectCommand({
@@ -70,27 +73,28 @@ export const generateSpeech = protectedAction
           ContentType: "audio/mpeg",
         })
       );
-      
+
       // Create the S3 URL
       const s3Url = `https://${
         process.env.AWS_S3_BUCKET || "voice-studio-uploads"
       }.s3.${process.env.AWS_REGION || "us-east-1"}.amazonaws.com/${s3Key}`;
-      
+
       // Calculate audio duration (approximate)
       // This is a simplification - in a real app you'd want to analyze the audio data
       const approxDuration = Math.floor(audioBuffer.length / 16000); // Very rough estimate
-      
+
       // Store the audio in the database if it's associated with a model
       let audioRecord;
+
+      // Check if user owns the voice model
       if (modelId) {
-        // Check if user owns the voice model
         const voiceModel = await prisma.voiceModel.findUnique({
           where: {
             id: modelId,
             userId: ctx.user.id,
           },
         });
-        
+
         if (!voiceModel) {
           return {
             success: false,
@@ -99,31 +103,20 @@ export const generateSpeech = protectedAction
             },
           };
         }
-        
-        // Store the audio in the database
-        audioRecord = await prisma.voiceSample.create({
-          data: {
-            name: title || "Generated Text-to-Speech",
-            fileUrl: s3Url,
-            duration: approxDuration,
-            transcription: text,
-            voiceModelId: modelId,
-            isGenerated: true,
-          },
-        });
-      } else {
-        // Create a temporary record not stored in the database
-        audioRecord = {
-          id: uuidv4(),
+      }
+
+      // Store the audio in the database
+      audioRecord = await prisma.audioClip.create({
+        data: {
           name: title || "Generated Text-to-Speech",
           fileUrl: s3Url,
           duration: approxDuration,
-          transcription: text,
-          isGenerated: true,
-          createdAt: new Date(),
-        };
-      }
-      
+          text,
+          modelId: voiceId ?? modelId,
+          userId
+        },
+      });
+
       return {
         success: true,
         data: audioRecord,
@@ -137,4 +130,4 @@ export const generateSpeech = protectedAction
         },
       };
     }
-  }); 
+  });

@@ -37,6 +37,7 @@ import {
   UploadCloud,
   User,
   X,
+  FileTextIcon
 } from "lucide-react";
 import { FcGoogle } from "react-icons/fc";
 
@@ -108,5 +109,6 @@ export const Icons = {
   audioWaveform: AudioWaveform,
   alertTriangle: AlertTriangle,
   refresh: RotateCw,
-  alertCircle: AlertCircle
+  alertCircle: AlertCircle,
+  fileText: FileTextIcon
 }; 

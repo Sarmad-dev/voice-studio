@@ -12,11 +12,12 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 interface AudioPlayerProps {
   src?: string;
   sampleId?: string;
+  audioId?: string;
   label?: string;
   onEnded?: () => void;
 }
 
-export function AudioPlayer({ src, sampleId, label, onEnded }: AudioPlayerProps) {
+export function AudioPlayer({ src, sampleId, audioId, label, onEnded }: AudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -25,7 +26,7 @@ export function AudioPlayer({ src, sampleId, label, onEnded }: AudioPlayerProps)
   const [debugInfo, setDebugInfo] = useState<{url: string; optimized: boolean} | null>(null);
   
   // Get the signed URL if sampleId is provided
-  const { signedUrl, isLoading: isUrlLoading, error: urlError } = useAudioUrl(sampleId || "");
+  const { signedUrl, isLoading: isUrlLoading, error: urlError } = useAudioUrl(sampleId || "", audioId || "");
   
   // Determine which URL to use (direct src or signed URL from hook)
   const initialAudioSrc = sampleId ? signedUrl : src;

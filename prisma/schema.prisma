@@ -33,6 +33,7 @@ model User {
   audioProjects AudioProject[]
   stories       Story[]
   accounts      Account[]
+  audioClips    AudioClip[]
 }
 
 // NextAuth Models
@@ -106,22 +107,26 @@ model AudioProject {
 model AudioClip {
   id          String  @id @default(cuid())
   name        String
-  type        String // VOICE, MUSIC, SOUND_EFFECT
+  type        String  @default("VOICE") // VOICE, MUSIC, SOUND_EFFECT
   fileUrl     String
-  startTime   Float // in seconds
+  startTime   Float? // in seconds
   duration    Float // in seconds
   volume      Float   @default(1.0)
   pitch       Float?
   speed       Float?  @default(1.0)
   emotionTone String? // HAPPY, SAD, NEUTRAL, etc.
+  modelId     String
 
   text String? @db.Text // For voice clips, the text used to generate
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  projectId String
-  project   AudioProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String?
+  project   AudioProject? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 // Generated Story

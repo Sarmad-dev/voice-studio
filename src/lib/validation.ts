@@ -43,3 +43,10 @@ export const signInSchema = z.object({
 // Schema types
 export type SignUpInput = z.infer<typeof signUpSchema>;
 export type SignInInput = z.infer<typeof signInSchema>;
+
+export const createProjectSchema = z.object({
+  name: z.string().min(3, "Project name must be at least 3 characters"),
+  description: z.string().optional(),
+  voiceModelId: z.string().optional(),
+  storyId: z.string().optional(),
+});

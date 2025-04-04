@@ -437,56 +437,106 @@ export const generateTestAudio = protectedAction
 export const getAudioFileUrl = protectedAction
   .input(
     z.object({
-      sampleId: z.string(),
+      sampleId: z.string().optional(),
+      audioId: z.string().optional()
     })
   )
   .query(async ({ ctx, input }) => {
     try {
-      const { sampleId } = input;
+      const { sampleId, audioId } = input;
       
       // Get the current database user
       const currentUser = await getCurrentDbUser(ctx);
       
       // Find the voice sample
-      const voiceSample = await prisma.voiceSample.findUnique({
-        where: {
-          id: sampleId,
-        },
-        include: {
-          voiceModel: true, // Include voice model to check ownership
-        },
-      });
+      let fileUrl;
+      let voiceSample;
+      let audio;
       
-      if (!voiceSample) {
-        return {
-          success: false,
-          error: {
-            message: "Voice sample not found",
+      if (sampleId) {
+        voiceSample = await prisma.voiceSample.findUnique({
+          where: {
+            id: sampleId,
           },
-        };
+          include: {
+            voiceModel: true, // Include voice model to check ownership
+          },
+        });
+        
+        if (!voiceSample) {
+          return {
+            success: false,
+            error: {
+              message: "Voice sample not found",
+            },
+          };
+        }
+        
+        // Check if user owns the voice model
+        if (voiceSample.voiceModel.userId !== currentUser.id) {
+          return {
+            success: false,
+            error: {
+              message: "You don't have permission to access this sample",
+            },
+          };
+        }
+        
+        if (!voiceSample.fileUrl) {
+          return {
+            success: false,
+            error: {
+              message: "Sample has no associated file",
+            },
+          };
+        }
+
+        fileUrl = voiceSample.fileUrl
       }
-      
-      // Check if user owns the voice model
-      if (voiceSample.voiceModel.userId !== currentUser.id) {
-        return {
-          success: false,
-          error: {
-            message: "You don't have permission to access this sample",
+
+      if (audioId) {
+        audio = await prisma.audioClip.findUnique({
+          where: {
+            id: sampleId,
           },
-        };
-      }
-      
-      if (!voiceSample.fileUrl) {
-        return {
-          success: false,
-          error: {
-            message: "Sample has no associated file",
+          include: {
+            user: true, // Include voice model to check ownership
           },
-        };
+        });
+        
+        if (!audio) {
+          return {
+            success: false,
+            error: {
+              message: "Audio not found",
+            },
+          };
+        }
+        
+        // Check if user owns the voice model
+        if (audio.user.id !== currentUser.id) {
+          return {
+            success: false,
+            error: {
+              message: "You don't have permission to access this sample",
+            },
+          };
+        }
+        
+        if (!audio.fileUrl) {
+          return {
+            success: false,
+            error: {
+              message: "Audio has no associated file",
+            },
+          };
+        }
+
+        fileUrl = audio.fileUrl
       }
       
       // Extract the key using our utility function
-      const key = extractS3KeyFromUrl(voiceSample.fileUrl);
+      const key = extractS3KeyFromUrl(fileUrl as string);
       
       console.log(`Generating pre-signed URL for key: ${key}`);
       
@@ -497,8 +547,9 @@ export const getAudioFileUrl = protectedAction
         success: true,
         data: {
           signedUrl,
-          sampleId: voiceSample.id,
-          name: voiceSample.name,
+          sampleId: voiceSample?.id,
+          audioId: audio?.id,
+          name: voiceSample?.name || audio?.name,
         },
       };
     } catch (error: any) {
